@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orders — CITY BOIS Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,450;9..144,600;9..144,700;9..144,900&family=JetBrains+Mono:wght@400;500;600;700&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
+  import {
+    getFirestore, collection, onSnapshot, updateDoc, doc, query, orderBy
+  } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+  import {
+    getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCkwgKbyxgfzAWOQwBCHw_Vqwth_2KlU1U",
+    authDomain: "citybois-kulture.firebaseapp.com",
+    projectId: "citybois-kulture",
+    storageBucket: "citybois-kulture.firebasestorage.app",
+    messagingSenderId: "375696582249",
+    appId: "1:375696582249:web:f5f809d929db29e4bc24f8",
+    measurementId: "G-JWCVHC22ZF"
+  };
+  const app = initializeApp(firebaseConfig);
+  try{ getAnalytics(app); }catch(e){}
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  // Admin access is scoped to this one account — even if some other signed-in
+  // user's session is present in the browser, only this email is treated as admin.
+  // This staff build shares the same login as the main admin panel (no separate
+  // account system) — it just hides the Products tab in the UI.
+  const ADMIN_EMAIL = 'cityboiskulture@gmail.com';
+  window.cbAdminAuth = {
+    signIn: (email, pw) => signInWithEmailAndPassword(auth, email, pw),
+    signOut: () => signOut(auth),
+    onChange: (cb) => onAuthStateChanged(auth, user => {
+      cb(user && user.email === ADMIN_EMAIL ? user : null);
+    }),
+  };
+
+  window.cbListenOrders = function(cb){
+    const q = query(collection(db,'orders'), orderBy('createdAt','desc'));
+    return onSnapshot(q, snap=>{
+      cb(snap.docs.map(d=>({id:d.id, ...d.data()})));
+    }, err=>{ cb(null, err); });
+  };
+  window.cbUpdateOrderStatus = async function(id, status){
+    await updateDoc(doc(db,'orders',id), { status });
+  };
+
+  window.cbFirebaseReady = true;
+  window.dispatchEvent(new Event('cb-ready'));
+</script>
+<style>
+:root{
+  --paper:#ffffff; --paper-2:#f7f4ec; --paper-3:#efe9d9;
+  --ink:#161509; --ink-dim:#6f6a58; --ink-faint:#a29c86;
+  --olive:#4a4b36; --gold:#a8763c; --gold-soft:#c8a467;
+  --rust:#8a3a26; --green-ok:#3f6b3a;
+  --line:rgba(22,21,9,.10); --line-strong:rgba(22,21,9,.20);
+  --ease:cubic-bezier(.16,.8,.24,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper-2);color:var(--ink);font-family:'Work Sans',sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+img{display:block;max-width:100%;}
+a{color:inherit;text-decoration:none;}
+button,input,select,textarea{font-family:inherit;}
+button{cursor:pointer;border:none;background:none;color:inherit;}
+.mono{font-family:'JetBrains Mono',monospace;}
+.label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:500;}
+h1,h2,h3,.display{font-family:'Fraunces',serif;font-weight:600;letter-spacing:-.01em;}
+
+/* ---------- LOGIN ---------- */
+.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ink);}
+.login-box{width:380px;max-width:90vw;background:#fff;border-radius:10px;padding:40px;box-shadow:0 30px 70px rgba(0,0,0,.3);}
+@media(max-width:420px){.login-box{padding:28px;}}
+.login-box .cb-mono{object-fit:contain;padding:4px;background:var(--paper-2);width:44px;height:44px;border:1px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:700;font-size:16px;color:var(--gold);margin-bottom:20px;}
+.login-box h2{font-size:22px;margin-bottom:6px;}
+.login-box .sub{color:var(--ink-dim);font-size:13px;margin-bottom:26px;}
+.lf{margin-bottom:14px;}
+.lf label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:var(--ink-dim);margin-bottom:7px;}
+.lf input{width:100%;padding:12px 14px;border:1px solid var(--line-strong);border-radius:4px;font-size:13px;outline:none;transition:border-color .3s;}
+.lf input:focus{border-color:var(--gold);}
+.login-btn{width:100%;padding:14px;background:var(--ink);color:#fff;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;border-radius:4px;margin-top:6px;transition:background .3s;}
+.login-btn:hover{background:var(--gold);}
+.login-error{color:var(--rust);font-size:12px;margin-top:12px;display:none;}
+.login-error.show{display:block;}
+.login-note{margin-top:22px;font-size:11px;color:var(--ink-faint);line-height:1.6;}
+
+/* ---------- SHELL ---------- */
+.shell{display:none;min-height:100vh;grid-template-columns:230px 1fr;}
+.shell.active{display:grid;}
+.side{background:var(--ink);color:#fff;padding:28px 20px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;}
+.side .brandmark{display:flex;align-items:center;gap:10px;margin-bottom:40px;}
+.side .cb-mono{object-fit:contain;padding:3px;background:rgba(255,255,255,.05);width:32px;height:32px;border:1px solid var(--gold-soft);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:700;font-size:13px;color:var(--gold-soft);flex-shrink:0;}
+.side .wordmark{font-family:'Fraunces',serif;font-weight:700;font-size:16px;}
+.side nav{display:flex;flex-direction:column;gap:4px;flex:1;}
+.side nav button{text-align:left;padding:12px 14px;border-radius:6px;font-size:13px;color:rgba(255,255,255,.65);transition:background .25s,color .25s;display:flex;align-items:center;gap:10px;min-height:44px;}
+.side nav button:hover{background:rgba(255,255,255,.06);color:#fff;}
+.side nav button.active{background:rgba(200,164,103,.14);color:var(--gold-soft);}
+.side .logout-btn{padding:12px 14px;border-radius:6px;font-size:12px;color:rgba(255,255,255,.5);text-align:left;transition:color .25s;min-height:44px;}
+.side .logout-btn:hover{color:#fff;}
+.side .view-store{padding:12px 14px;border-radius:6px;font-size:12px;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);text-align:center;margin-bottom:10px;transition:border-color .3s,color .3s;min-height:44px;display:flex;align-items:center;justify-content:center;}
+.side .view-store:hover{border-color:var(--gold-soft);color:var(--gold-soft);}
+.menu-toggle{display:none;}
+
+@media(max-width:860px){
+  .shell.active{display:flex;flex-direction:column;min-height:auto;}
+  .side{position:sticky;top:0;z-index:100;height:auto;padding:16px 18px;flex-direction:row;align-items:center;justify-content:space-between;}
+  .side .brandmark{margin-bottom:0;}
+  .side .view-store{display:none;}
+  .menu-toggle{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;flex-shrink:0;}
+  .side-menu-panel{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:150;background:var(--ink);padding:24px 20px;flex-direction:column;overflow-y:auto;}
+  .side-menu-panel.open{display:flex;}
+  .side-menu-panel .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;}
+  .side-menu-panel .panel-close{width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;}
+  .side-menu-panel nav{display:flex;flex-direction:column;gap:6px;}
+  .side-menu-panel nav button{text-align:left;padding:14px;border-radius:6px;font-size:14px;color:rgba(255,255,255,.75);min-height:48px;}
+  .side-menu-panel nav button.active{background:rgba(200,164,103,.14);color:var(--gold-soft);}
+  .side-menu-panel .view-store{display:block;margin-top:20px;padding:14px;text-align:center;border:1px solid rgba(255,255,255,.2);border-radius:6px;color:rgba(255,255,255,.7);}
+  .side-menu-panel .logout-btn{margin-top:10px;padding:14px;text-align:left;color:rgba(255,255,255,.55);}
+}
+
+.main{padding:36px 44px;overflow-x:hidden;}
+@media(max-width:860px){.main{padding:24px 18px;}}
+@media(max-width:480px){.main{padding:18px 14px;}}
+.view{display:none;}
+.view.active{display:block;animation:viewIn .3s ease;}
+@keyframes viewIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.view-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:14px;}
+.view-head h1{font-size:26px;}
+@media(max-width:480px){.view-head h1{font-size:21px;}}
+.view-head p{color:var(--ink-dim);font-size:13px;margin-top:4px;}
+
+/* ---------- STAT CARDS ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:36px;}
+@media(max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:480px){.stat-grid{grid-template-columns:1fr;gap:12px;}}
+.stat-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:22px;}
+.stat-card .lbl{color:var(--ink-faint);margin-bottom:10px;display:block;}
+.stat-card .val{font-family:'Fraunces',serif;font-size:28px;font-weight:600;color:var(--ink);}
+.stat-card .sub{font-size:12px;color:var(--ink-faint);margin-top:6px;}
+
+.panel-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:26px;margin-bottom:24px;}
+.panel-card h3{font-size:16px;margin-bottom:18px;}
+.top-product-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.top-product-row:last-child{border-bottom:none;}
+.top-product-row .tp-name{color:var(--ink);}
+.top-product-row .tp-units{color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:12px;}
+
+/* ---------- PRODUCTS TABLE ---------- */
+.action-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+.btn{padding:11px 20px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;transition:background .3s,transform .2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-dark{background:var(--ink);color:#fff;}
+.btn-dark:hover{background:var(--gold);}
+.btn-outline{border:1px solid var(--line-strong);color:var(--ink);}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold);}
+.btn-danger{border:1px solid var(--rust);color:var(--rust);}
+.btn-danger:hover{background:var(--rust);color:#fff;}
+
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;}
+.product-table{width:100%;min-width:640px;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.product-table th{text-align:left;padding:14px 16px;background:var(--paper-2);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);border-bottom:1px solid var(--line);}
+.product-table td{padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle;}
+.product-table tr:last-child td{border-bottom:none;}
+.pt-thumb{width:44px;height:44px;border-radius:4px;object-fit:cover;background:var(--paper-2);}
+.pt-name{font-weight:600;}
+.pt-cat{color:var(--ink-faint);font-size:11px;}
+.pt-actions{display:flex;gap:8px;}
+.icon-btn{width:30px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--ink-dim);border:1px solid var(--line-strong);transition:all .25s;}
+@media(max-width:600px){.icon-btn{width:38px;height:38px;}}
+.icon-btn:hover{border-color:var(--gold);color:var(--gold);}
+.icon-btn.danger:hover{border-color:var(--rust);color:var(--rust);}
+
+/* ---------- ORDERS TABLE ---------- */
+.orders-table{width:100%;min-width:680px;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.orders-table th{text-align:left;padding:14px 16px;background:var(--paper-2);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);border-bottom:1px solid var(--line);}
+.orders-table td{padding:14px 16px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top;}
+.orders-table tr:last-child td{border-bottom:none;}
+.ot-items{font-size:12px;color:var(--ink-dim);max-width:220px;}
+.ot-customer .name{font-weight:600;}
+.ot-customer .sub{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+.ot-total{font-family:'JetBrains Mono',monospace;font-weight:700;}
+.status-select{padding:7px 10px;border-radius:100px;border:1px solid var(--line-strong);font-size:11px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.05em;}
+.status-select.awaiting_verification{color:var(--rust);border-color:var(--rust);}
+.status-select.processing{color:var(--gold);border-color:var(--gold);}
+.status-select.shipped{color:#3a6b8a;border-color:#3a6b8a;}
+.status-select.delivered{color:var(--green-ok);border-color:var(--green-ok);}
+.btn-delivery{padding:9px 14px;border:1px solid var(--line-strong);border-radius:100px;font-size:12px;color:var(--ink);white-space:nowrap;transition:border-color .25s,background .25s;}
+.btn-delivery:hover{border-color:var(--gold);background:var(--paper-2);}
+.dm-row{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px;gap:16px;}
+.dm-row.full{flex-direction:column;gap:6px;}
+.dm-row:last-child{border-bottom:none;}
+.dm-label{color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;flex-shrink:0;}
+.dm-val{color:var(--ink);text-align:right;font-weight:500;}
+.dm-val.strong{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--gold);}
+.dm-address{color:var(--ink);font-size:14px;line-height:1.5;background:var(--paper-2);padding:12px 14px;border-radius:6px;width:100%;}
+.dm-divider{height:1px;background:var(--line);margin:6px 0;}
+.empty-note{padding:60px 20px;text-align:center;color:var(--ink-faint);}
+
+/* ---------- MODAL FORM ---------- */
+.modal-backdrop{position:fixed;inset:0;background:rgba(10,9,8,.5);z-index:500;opacity:0;pointer-events:none;transition:opacity .3s;}
+.modal-backdrop.open{opacity:1;pointer-events:auto;}
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-46%);width:560px;max-width:92vw;max-height:88vh;overflow-y:auto;background:#fff;border-radius:10px;z-index:501;padding:32px;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;}
+@media(max-width:600px){.modal{padding:22px 18px;max-height:92vh;}}
+.modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%);}
+.modal-close{position:absolute;top:16px;right:16px;font-size:22px;color:var(--ink-faint);transition:color .2s;}
+.modal-close:hover{color:var(--gold);}
+.modal h3{font-size:20px;margin-bottom:22px;}
+.f-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:480px){.f-row2{grid-template-columns:1fr;}}
+.color-preset-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;}
+.color-preset{width:36px;height:36px;border-radius:50%;cursor:pointer;position:relative;border:2px solid transparent;transition:transform .2s var(--ease),border-color .2s var(--ease);}
+.color-preset:hover{transform:scale(1.1);}
+.color-preset.active{border-color:var(--gold);box-shadow:0 0 0 2px #fff, 0 0 0 3px var(--gold);}
+.color-preset.active::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;mix-blend-mode:difference;font-size:14px;font-weight:700;}
+.color-custom-row{display:flex;align-items:center;gap:12px;padding-top:4px;border-top:1px dashed var(--line-strong);margin-top:4px;padding-top:12px;}
+.color-custom-swatch{width:36px;height:36px;border-radius:50%;border:2px dashed var(--line-strong);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;overflow:hidden;position:relative;}
+.color-custom-swatch input[type="color"]{position:absolute;inset:-4px;width:44px;height:44px;cursor:pointer;opacity:0;}
+.f-field{margin-bottom:14px;}
+.f-field label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:var(--ink-dim);margin-bottom:7px;}
+.f-field input, .f-field select, .f-field textarea{width:100%;padding:11px 13px;border:1px solid var(--line-strong);border-radius:4px;font-size:13px;outline:none;transition:border-color .3s;}
+.f-field input:focus, .f-field select:focus, .f-field textarea:focus{border-color:var(--gold);}
+.f-field textarea{resize:vertical;min-height:64px;}
+.size-check-row{display:flex;gap:10px;flex-wrap:wrap;}
+.size-check{display:flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--line-strong);padding:7px 12px;border-radius:100px;cursor:pointer;}
+.size-check input{width:auto;}
+.img-preview-strip{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;min-height:80px;padding:10px;border:1px dashed var(--line-strong);border-radius:6px;background:var(--paper-2);position:relative;}
+.img-empty-label{color:var(--ink-faint);font-size:12px;align-self:center;}
+.img-thumb{position:relative;width:76px;height:76px;border-radius:6px;overflow:hidden;background:#fff;border:1px solid var(--line);flex-shrink:0;}
+.img-thumb img{width:100%;height:100%;object-fit:cover;}
+.img-thumb-remove{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(22,21,9,.75);color:#fff;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.img-thumb-remove:hover{background:var(--rust);}
+.img-thumb-primary{position:absolute;bottom:0;left:0;right:0;background:var(--gold);color:#fff;font-size:8px;text-align:center;padding:2px 0;font-family:'JetBrains Mono',monospace;letter-spacing:.05em;text-transform:uppercase;}
+.img-preview-strip .upload-loading{position:absolute;inset:0;background:rgba(255,255,255,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:2;border-radius:6px;}
+.upload-spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--line-strong);border-top-color:var(--gold);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.upload-pct{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);}
+.save-note{font-size:11px;color:var(--ink-faint);margin-top:14px;}
+
+/* ---------- CONTACT SETTINGS ---------- */
+.contact-form .f-field{max-width:400px;}
+
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);z-index:600;background:var(--ink);color:#fff;padding:14px 26px;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:12px;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <img class="cb-mono" src="https://i.ibb.co/twdLLN5R/logo-gb-monogram.png" alt="logo gb monogram" border="0">
+    <h2>Orders Dashboard</h2>
+    <p class="sub">Sign in to manage City Bois.</p>
+    <div class="lf"><label for="loginEmail">Email</label><input type="email" id="loginEmail" placeholder="you@citybois.com"></div>
+    <div class="lf"><label for="loginPassword">Password</label><input type="password" id="loginPassword" placeholder="••••••••"></div>
+    <button class="login-btn" id="loginBtn">Sign In</button>
+    <div class="login-error" id="loginError">Incorrect email or password.</div>
+    <p class="login-note">Contact the site owner if you need the login details.</p>
+  </div>
+</div>
+
+<!-- SHELL -->
+<div class="shell" id="shell">
+  <aside class="side">
+    <div class="brandmark"><img class="cb-mono" src="images/logo-stamp-circle.png" alt="City Bois"><span class="wordmark">Orders</span></div>
+    <a class="view-store" href="shop.html" target="_blank">View Live Store ↗</a>
+    <nav>
+      <button data-view="dashboard" class="active">◆ Dashboard</button>
+      <button data-view="orders">◆ Orders</button>
+      <button data-view="settings">◆ Contact Info</button>
+    </nav>
+    <button class="logout-btn" id="logoutBtn">Sign Out</button>
+    <button class="menu-toggle" id="menuToggle" aria-label="Open menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </aside>
+
+  <div class="side-menu-panel" id="sideMenuPanel">
+    <div class="panel-head">
+      <div class="brandmark"><img class="cb-mono" src="images/logo-stamp-circle.png" alt="City Bois"><span class="wordmark">Orders</span></div>
+      <button class="panel-close" id="panelClose">&times;</button>
+    </div>
+    <nav>
+      <button data-view="dashboard" class="active">◆ Dashboard</button>
+      <button data-view="orders">◆ Orders</button>
+      <button data-view="settings">◆ Contact Info</button>
+    </nav>
+    <a class="view-store" href="shop.html" target="_blank">View Live Store ↗</a>
+    <button class="logout-btn" id="logoutBtnMobile">Sign Out</button>
+  </div>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="view-head"><div><h1>Dashboard</h1><p>A quick read on how the store is performing.</p></div></div>
+      <div class="stat-grid">
+        <div class="stat-card"><span class="label lbl">Total Revenue</span><div class="val" id="statRevenue">₦0</div><div class="sub">From paid orders</div></div>
+        <div class="stat-card"><span class="label lbl">Total Orders</span><div class="val" id="statOrders">0</div><div class="sub" id="statOrdersSub">0 awaiting verification</div></div>
+        <div class="stat-card"><span class="label lbl">Avg. Order Value</span><div class="val" id="statAOV">₦0</div><div class="sub">Per completed order</div></div>
+        <div class="stat-card"><span class="label lbl">Pending Orders</span><div class="val" id="statPending">0</div><div class="sub">Awaiting verification</div></div>
+      </div>
+      <div class="panel-card">
+        <h3>Top Products By Units Sold</h3>
+        <div id="topProductsList"><div class="empty-note">No sales yet.</div></div>
+      </div>
+      <div class="panel-card">
+        <h3>Recent Orders</h3>
+        <div id="recentOrdersList"><div class="empty-note">No orders yet.</div></div>
+      </div>
+    </section>
+
+    <!-- ORDERS -->
+    <section class="view" id="view-orders">
+      <div class="view-head"><div><h1>Orders</h1><p>Every transaction, with customer contact and delivery details.</p></div></div>
+      <div class="table-scroll">
+        <table class="orders-table">
+          <thead><tr><th>Date</th><th>Customer</th><th>Items</th><th>Delivery</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody id="ordersTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="view-head"><div><h1>Contact Info</h1><p>Reference only — these are currently hard-coded in the site footer/contact popup. Update the HTML directly to change them, or ask for this to be wired to Firestore too.</p></div></div>
+      <div class="panel-card contact-form">
+        <div class="f-field"><label>WhatsApp</label><input type="text" value="https://wa.me/message/4QFKZC4F22UQM1" readonly></div>
+        <div class="f-field"><label>Phone 1</label><input type="text" value="0912 209 3769" readonly></div>
+        <div class="f-field"><label>Phone 2</label><input type="text" value="0707 732 2014" readonly></div>
+        <div class="f-field"><label>Instagram</label><input type="text" value="https://www.instagram.com/bami_citybois" readonly></div>
+        <div class="f-field"><label>TikTok</label><input type="text" value="https://vt.tiktok.com/ZSXFaS4J3/" readonly></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- DELIVERY MODAL -->
+<div class="modal-backdrop" id="deliveryModalBackdrop"></div>
+<div class="modal" id="deliveryModal" style="width:440px;">
+  <button class="modal-close" id="deliveryModalClose">&times;</button>
+  <h3>Delivery Details</h3>
+  <div id="deliveryModalBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let ORDERS = [];
+const fmt = n => '₦' + Number(n||0).toLocaleString('en-NG');
+function esc(s){
+  if(s===null||s===undefined) return '';
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove('show'), 2800);
+}
+
+/* ---------- AUTH ---------- */
+/* ---------- AUTH (real Firebase Auth, scoped to one admin account) ---------- */
+function showShell(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('shell').classList.add('active');
+  initData();
+}
+function showLogin(){
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('shell').classList.remove('active');
+}
+
+document.getElementById('loginBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try{
+    await window.cbAdminAuth.signIn(email, pw);
+    errEl.classList.remove('show');
+  }catch(e){
+    errEl.textContent = 'Sign-in failed — check the email and password.';
+    errEl.classList.add('show');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+});
+document.getElementById('loginPassword').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') document.getElementById('loginBtn').click();
+});
+document.getElementById('logoutBtn').addEventListener('click', ()=> window.cbAdminAuth.signOut());
+document.getElementById('logoutBtnMobile').addEventListener('click', ()=>{
+  closeMobileMenu();
+  window.cbAdminAuth.signOut();
+});
+
+function bootAdminAuth(){
+  window.cbAdminAuth.onChange(user=>{
+    if(user) showShell(); else showLogin();
+  });
+}
+if(window.cbFirebaseReady) bootAdminAuth();
+else window.addEventListener('cb-ready', bootAdminAuth);
+
+/* ---------- MOBILE MENU ---------- */
+function openMobileMenu(){ document.getElementById('sideMenuPanel').classList.add('open'); }
+function closeMobileMenu(){ document.getElementById('sideMenuPanel').classList.remove('open'); }
+document.getElementById('menuToggle').addEventListener('click', openMobileMenu);
+document.getElementById('panelClose').addEventListener('click', closeMobileMenu);
+
+/* ---------- NAV (desktop sidebar + mobile panel stay in sync) ---------- */
+document.querySelectorAll('.side nav button, .side-menu-panel nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.side nav button, .side-menu-panel nav button').forEach(b=>{
+      b.classList.toggle('active', b.dataset.view === btn.dataset.view);
+    });
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    closeMobileMenu();
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
+});
+
+/* ---------- DATA INIT ---------- */
+let dataInitialized = false;
+function initData(){
+  if(dataInitialized) return;
+  dataInitialized = true;
+  document.getElementById('ordersTableBody').innerHTML = `<tr><td colspan="6"><div class="empty-note">Loading orders…</div></td></tr>`;
+
+  const loadTimeout = setTimeout(()=>{
+    document.getElementById('ordersTableBody').innerHTML = `<tr><td colspan="6"><div class="empty-note">This is taking a while — double check Firestore is enabled and the rules are published (see SETUP-FIREBASE.md), then refresh this page.</div></td></tr>`;
+  }, 10000);
+
+  window.cbListenOrders((items, err)=>{
+    clearTimeout(loadTimeout);
+    if(err){
+      document.getElementById('ordersTableBody').innerHTML = `<tr><td colspan="6"><div class="empty-note">Couldn't load orders — check your Firestore setup, then refresh.<br><span class="mono" style="font-size:10px;">${err.message||''}</span></div></td></tr>`;
+      return;
+    }
+    ORDERS = items || [];
+    renderOrdersTable();
+    renderDashboard();
+  });
+}
+
+/* ---------- DASHBOARD ---------- */
+function renderDashboard(){
+  const paidStatuses = ['awaiting_verification','processing','shipped','delivered'];
+  const paidOrders = ORDERS.filter(o => paidStatuses.includes(o.status));
+  const revenue = paidOrders.reduce((s,o)=> s + (o.total||0), 0);
+  const aov = paidOrders.length ? revenue / paidOrders.length : 0;
+  document.getElementById('statRevenue').textContent = fmt(revenue);
+  document.getElementById('statOrders').textContent = ORDERS.length;
+  document.getElementById('statOrdersSub').textContent = ORDERS.filter(o=>o.status==='awaiting_verification').length + ' awaiting verification';
+  document.getElementById('statAOV').textContent = fmt(Math.round(aov));
+  document.getElementById('statPending').textContent = ORDERS.filter(o=>o.status==='awaiting_verification').length;
+
+  const unitsByProduct = {};
+  ORDERS.forEach(o=>{
+    (o.items||[]).forEach(it=>{
+      const key = it.name + ' — ' + it.edition;
+      unitsByProduct[key] = (unitsByProduct[key]||0) + (it.qty||1);
+    });
+  });
+  const top = Object.entries(unitsByProduct).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  document.getElementById('topProductsList').innerHTML = top.length ? top.map(([name,units])=>
+    `<div class="top-product-row"><span class="tp-name">${name}</span><span class="tp-units">${units} sold</span></div>`
+  ).join('') : '<div class="empty-note">No sales yet.</div>';
+
+  const recent = ORDERS.slice(0,5);
+  document.getElementById('recentOrdersList').innerHTML = recent.length ? recent.map(o=>
+    `<div class="top-product-row"><span class="tp-name">${o.customer?.name||'—'} · ${(o.items||[]).length} item(s)</span><span class="tp-units">${fmt(o.total)}</span></div>`
+  ).join('') : '<div class="empty-note">No orders yet.</div>';
+}
+
+/* ---------- ORDERS ---------- */
+function renderOrdersTable(){
+  const body = document.getElementById('ordersTableBody');
+  if(ORDERS.length === 0){
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-note">No orders yet — they'll appear here the moment a customer completes checkout.</div></td></tr>`;
+    return;
+  }
+  body.innerHTML = ORDERS.map(o=>{
+    const date = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'}) : '—';
+    const itemsStr = (o.items||[]).map(it=> `${it.qty}× ${esc(it.name)} (${esc(it.edition)}${it.size?', '+esc(it.size):''})`).join(', ');
+    return `
+      <tr>
+        <td class="pt-cat">${date}</td>
+        <td class="ot-customer">
+          <div class="name">${esc(o.customer?.name) || '—'}</div>
+          <div class="sub">${esc(o.customer?.email)}</div>
+          <div class="sub">${esc(o.customer?.phone)}</div>
+        </td>
+        <td class="ot-items">${itemsStr}</td>
+        <td><button class="btn-delivery" onclick='openDeliveryModal(${JSON.stringify(o).replace(/'/g,"&#39;")})'>📍 View Delivery</button></td>
+        <td class="ot-total">${fmt(o.total)}</td>
+        <td>
+          <select class="status-select ${o.status}" onchange="updateStatus('${o.id}', this.value, this)">
+            <option value="awaiting_verification" ${o.status==='awaiting_verification'?'selected':''}>Awaiting Verification</option>
+            <option value="processing" ${o.status==='processing'?'selected':''}>Processing</option>
+            <option value="shipped" ${o.status==='shipped'?'selected':''}>Shipped</option>
+            <option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option>
+          </select>
+        </td>
+      </tr>`;
+  }).join('');
+}
+window.openDeliveryModal = function(o){
+  const date = o.createdAt && o.createdAt.seconds ? new Date(o.createdAt.seconds*1000).toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'}) : '—';
+  document.getElementById('deliveryModalBody').innerHTML = `
+    <div class="dm-row"><span class="dm-label">Order Date</span><span class="dm-val">${date}</span></div>
+    <div class="dm-row"><span class="dm-label">Customer</span><span class="dm-val">${esc(o.customer?.name) || '—'}</span></div>
+    <div class="dm-row"><span class="dm-label">Phone</span><span class="dm-val"><a href="tel:${esc(o.customer?.phone)}">${esc(o.customer?.phone) || '—'}</a></span></div>
+    <div class="dm-row"><span class="dm-label">Email</span><span class="dm-val">${esc(o.customer?.email) || '—'}</span></div>
+    <div class="dm-divider"></div>
+    <div class="dm-row"><span class="dm-label">Region</span><span class="dm-val">${esc(o.delivery?.regionLabel) || '—'}</span></div>
+    <div class="dm-row full"><span class="dm-label">Full Address</span><p class="dm-address">${esc(o.delivery?.address) || 'No address on file.'}</p></div>
+    <div class="dm-divider"></div>
+    <div class="dm-row"><span class="dm-label">Delivery Fee</span><span class="dm-val">${fmt(o.deliveryFee)}</span></div>
+    <div class="dm-row"><span class="dm-label">Order Total</span><span class="dm-val strong">${fmt(o.total)}</span></div>
+  `;
+  document.getElementById('deliveryModal').classList.add('open');
+  document.getElementById('deliveryModalBackdrop').classList.add('open');
+};
+function closeDeliveryModal(){
+  document.getElementById('deliveryModal').classList.remove('open');
+  document.getElementById('deliveryModalBackdrop').classList.remove('open');
+}
+document.getElementById('deliveryModalClose').addEventListener('click', closeDeliveryModal);
+document.getElementById('deliveryModalBackdrop').addEventListener('click', closeDeliveryModal);
+window.updateStatus = async function(id, status, el){
+  try{
+    await window.cbUpdateOrderStatus(id, status);
+    el.className = 'status-select ' + status;
+    showToast('Order status updated.');
+  }catch(e){ showToast('Update failed: ' + e.message); }
+};
+</script>
+</body>
+</html>
