@@ -1,4 +1,4 @@
-/* ===== theme ===== */
+<script>/* ===== theme ===== */
 (function(){
     try{
       const saved = localStorage.getItem('cb_theme');
@@ -687,3 +687,4 @@ window.clearChip = clearChip;
 window.filterByCategory = filterByCategory;
 window.goToProduct = goToProduct;
 window.removeItem = removeItem;
+</script>
