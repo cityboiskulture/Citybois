@@ -1,4 +1,4 @@
-/* ---------- NAV + PROGRESS ---------- */
+
 const nav = document.getElementById('nav');
 const progressBar = document.getElementById('progressBar');
 function updateProgress(){
